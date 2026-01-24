@@ -1,0 +1,12 @@
+[project]
+name = "jq-tryout"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "fastapi>=0.124.4",
+    "jq>=1.10.0",
+    "pydantic>=2.12.5",
+    "uvicorn>=0.38.0",
+]
