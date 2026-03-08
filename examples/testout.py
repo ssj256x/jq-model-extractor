@@ -109,5 +109,5 @@ class UserDetailsConcise(JqModel):
 
 with open('user.json') as f:
     users = json.loads(f.read())
-    u = UserDetailsConcise.from_json(json.loads(users))
+    u = UserDetailsConcise.from_json(users)
     unwrap(u)
