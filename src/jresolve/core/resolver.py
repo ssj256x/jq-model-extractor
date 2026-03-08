@@ -5,8 +5,13 @@ import jq
 from result import Result, Ok, Err
 from typing import Any, Callable
 
-from core.transform import Transform
-from exceptions.exceptions import ResolutionError, JqResolutionError, ComputationError, MissingValueError
+from .transform import Transform
+from ..exceptions import (
+    ResolutionError,
+    JqResolutionError,
+    ComputationError,
+    MissingValueError
+)
 
 
 class Resolver(ABC):

@@ -1,7 +1,7 @@
 from typing import get_origin, get_args
 
-from core.resolver import Resolver, Pipeline
-from core.transform import Transform
+from .resolver import Resolver, Pipeline
+from .transform import Transform
 
 
 def build_pipeline_from_field(field) -> Resolver | None:
@@ -24,7 +24,7 @@ def build_pipeline_from_field(field) -> Resolver | None:
 
 
 def is_jq_model(_type) -> bool:
-    from core.model import JqModel
+    from .model import JqModel
     return isinstance(_type, type) and issubclass(_type, JqModel)
 
 

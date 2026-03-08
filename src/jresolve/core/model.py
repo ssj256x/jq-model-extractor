@@ -2,9 +2,9 @@ from pydantic import BaseModel
 from result import Result, Ok, Err
 from typing import Any, get_args
 
-from core.helpers import is_jq_model, build_pipeline_from_field, is_list_of_jq_model
-from core.resolver import Resolver
-from exceptions.exceptions import ModelResolutionError, ResolutionError
+from .helpers import is_jq_model, build_pipeline_from_field, is_list_of_jq_model
+from .resolver import Resolver
+from ..exceptions import ModelResolutionError, ResolutionError
 
 
 class JqModel(BaseModel):

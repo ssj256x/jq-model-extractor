@@ -5,9 +5,7 @@ from typing import Annotated, Optional
 from result import Ok, Err, Result
 import jq
 
-from core.model import JqModel
-from core.resolver import Jq, JqMode, Computed
-from core.transform import Transform
+from jresolve import JqModel, Jq, JqMode, Computed, Transform
 
 
 def unwrap(result: Result):

@@ -1,6 +1,6 @@
 from result import Err, Ok
 
-from exceptions.exceptions import TransformError
+from ..exceptions.exceptions import TransformError
 
 
 class Transform:
