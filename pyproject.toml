@@ -1,7 +1,7 @@
 [project]
 name = "jresolve"
 version = "0.1.0"
-description = "Add your description here"
+description = "A declarative library to extract and transform JSON"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [

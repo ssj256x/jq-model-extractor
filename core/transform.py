@@ -1,3 +1,8 @@
+from result import Err, Ok
+
+from exceptions.exceptions import TransformError
+
+
 class Transform:
     def __init__(self, fn, description: str = ""):
         self.fn = fn

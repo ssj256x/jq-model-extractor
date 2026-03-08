@@ -5,9 +5,9 @@ from typing import Annotated, Optional
 from result import Ok, Err, Result
 import jq
 
-from annotated_resolver import Jq, JqModel, JqMode, Transform, Computed
-from app.services.random_data import get_large_random_data_json
-from app.utils.computed_functions import full_name
+from core.model import JqModel
+from core.resolver import Jq, JqMode, Computed
+from core.transform import Transform
 
 
 def unwrap(result: Result):
@@ -37,6 +37,16 @@ def create_one_line_address(data):
             .location.postalCode
         )
     ''').input_value(data).all()[0]
+
+
+def full_name(data: dict) -> str:
+    parts = [
+        jq.compile('.profile.name.first').input_value(data).all()[0],
+        jq.compile('.profile.name.middle').input_value(data).all()[0],
+        jq.compile('.profile.name.last').input_value(data).all()[0]
+    ]
+
+    return " ".join(p for p in parts if p)
 
 
 class Audit(JqModel):
@@ -97,8 +107,7 @@ class UserDetailsConcise(JqModel):
     address: Address
 
 
-users = get_large_random_data_json()
-u = UserDetailsConcise.from_json(json.loads(users))
-
-# audit = Address.from_json(json.loads(users))
-unwrap(u)
+with open('user.json') as f:
+    users = json.loads(f.read())
+    u = UserDetailsConcise.from_json(json.loads(users))
+    unwrap(u)
