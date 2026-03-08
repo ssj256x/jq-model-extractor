@@ -1,14 +1,24 @@
 from abc import ABC, abstractmethod
 from enum import Enum
+from result import Result, Ok, Err
 from typing import Any, Callable, get_origin, get_args
 
 import jq
 from pydantic import BaseModel
 
+from annotated_resolver.exceptions import (
+    ResolutionError,
+    JqResolutionError,
+    ComputationError,
+    TransformError,
+    ModelResolutionError,
+    MissingValueError
+)
+
 
 class Resolver(ABC):
     @abstractmethod
-    def resolve(self, data: dict) -> Any | None:
+    def resolve(self, data: dict) -> Result[Any, ResolutionError]:
         pass
 
 
@@ -18,7 +28,10 @@ class Transform:
         self.description = description
 
     def apply(self, data):
-        return self.fn(data)
+        try:
+            return Ok(self.fn(data))
+        except Exception as e:
+            return Err(TransformError(str(e)))
 
 
 class Pipeline(Resolver):
@@ -27,10 +40,15 @@ class Pipeline(Resolver):
         self.transforms = transforms
 
     def resolve(self, data: dict):
-        value = self.base.resolve(data)
-        for t in self.transforms:
-            value = t.apply(value)
-        return value
+        result = self.base.resolve(data)
+
+        for transform in self.transforms:
+            if result.is_err():
+                return result
+
+            result = transform.apply(result.ok())
+
+        return result
 
 
 class JqMode(Enum):
@@ -39,16 +57,26 @@ class JqMode(Enum):
 
 
 class Jq(Resolver):
-    def __init__(self, expression: str, *, mode: JqMode = JqMode.ONE):
+    def __init__(self, expression: str, *, mode: JqMode = JqMode.ONE, required: bool = False):
         self.expression = expression
         self.mode = mode
+        self.required = required
+        self.program = jq.compile(expression)
 
     def resolve(self, data: dict) -> Any | None:
-        result = jq.compile(self.expression).input_value(data).all()
-        if not result:
-            return None
+        try:
+            result = self.program.input_value(data).all()
+            value = result[0] if self.mode == JqMode.ONE else result
 
-        return result[0] if self.mode == JqMode.ONE else result
+            if not value:
+                if self.required:
+                    return Err(MissingValueError(self.expression))
+                return Ok(None)
+
+            # value = result[0] if self.mode == JqMode.ONE else result
+            return Ok(value)
+        except Exception as e:
+            return Err(JqResolutionError(str(e)))
 
 
 class Computed(Resolver):
@@ -57,7 +85,10 @@ class Computed(Resolver):
         self.description = description
 
     def resolve(self, data: dict):
-        return self.fn(data)
+        try:
+            return Ok(self.fn(data))
+        except Exception as e:
+            return Err(ComputationError(str(e)))
 
 
 def build_pipeline_from_field(field) -> Resolver | None:
@@ -92,26 +123,57 @@ def is_list_of_jq_model(tp):
 
 class JqModel(BaseModel):
     @classmethod
-    def from_json(cls, data: dict[str, Any]):
-        values = {}
+    def from_json(cls, data: dict[str, Any]) -> Result[Any, ResolutionError]:
+        values: dict[str, Any] = {}
+        errors: dict[str, ResolutionError] = {}
 
         for field_name, field in cls.model_fields.items():
             field_type = field.annotation
             resolver: Resolver | None = build_pipeline_from_field(field)
 
-            # In case a Pipeline exists
+            # Case 1: Resolver / Pipeline Exists
             if resolver:
-                value = resolver.resolve(data)
+                result = resolver.resolve(data)
+                if result.is_err():
+                    errors[field_name] = result.err()
+                    continue
+
+                value = result.ok()
+
+                # Handle list[JqModel]
                 if is_list_of_jq_model(field_type) and value is not None:
                     model_cls = get_args(field_type)[0]
-                    value = [model_cls.from_json(value) for value in value]
+
+                    resolved_items = []
+                    for idx, item in enumerate(value):
+                        nested_result = model_cls.from_json(item)
+                        if nested_result.is_err():
+                            errors[f"{field_name}[{idx}]"] = nested_result.err()
+                            continue
+
+                        resolved_items.append(nested_result.ok())
+
+                    value = resolved_items
+
                 values[field_name] = value
                 continue
 
             if is_jq_model(field_type):
-                values[field_name] = field_type.from_json(data)
+                nested_result = field_type.from_json(data)
+                if nested_result.is_err():
+                    errors[field_name] = nested_result.err()
+                    continue
+
+                values[field_name] = nested_result.ok()
                 continue
 
             values[field_name] = None
 
-        return cls(**values)
+        if errors:
+            return Err(ModelResolutionError(errors))
+
+        try:
+            model = cls(**values)
+            return Ok(model)
+        except Exception as e:
+            return Err(ModelResolutionError({"model": e}))

@@ -8,5 +8,6 @@ dependencies = [
     "fastapi>=0.124.4",
     "jq>=1.10.0",
     "pydantic>=2.12.5",
+    "result>=0.17.0",
     "uvicorn>=0.38.0",
 ]

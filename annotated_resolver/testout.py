@@ -1,12 +1,22 @@
 import json
+import pprint
 from typing import Annotated, Optional
 
+from result import Ok, Err, Result
 import jq
 
 from annotated_resolver import Jq, JqModel, JqMode, Transform, Computed
-from app.models.address import Geo
 from app.services.random_data import get_large_random_data_json
 from app.utils.computed_functions import full_name
+
+
+def unwrap(result: Result):
+    match result:
+        case Ok(value):
+            print("Success: ", value.model_dump_json(indent=2))
+        case Err(error):
+            print("Error: ")
+            pprint.pprint(error)
 
 
 def transform_geo(data):
@@ -26,13 +36,13 @@ def create_one_line_address(data):
             .location.country + " - " +
             .location.postalCode
         )
-    ''').input_value(data).all()
+    ''').input_value(data).all()[0]
 
 
 class Audit(JqModel):
     auditedBy: Annotated[
         str,
-        Jq(".audit.lastUpdated.by")
+        Jq(".audit.lastUpdated.by", required=True)
     ]
 
     auditedDate: Annotated[
@@ -44,7 +54,7 @@ class Audit(JqModel):
 class Address(JqModel):
     address_line: Annotated[
         str,
-        Jq('.profile.addresses[]', mode=JqMode.ONE),
+        Jq('.profile.addresses[]', mode=JqMode.ONE, required=True),
         Transform(create_one_line_address)
     ]
 
@@ -89,4 +99,6 @@ class UserDetailsConcise(JqModel):
 
 users = get_large_random_data_json()
 u = UserDetailsConcise.from_json(json.loads(users))
-print(u.model_dump_json(indent=2))
+
+# audit = Address.from_json(json.loads(users))
+unwrap(u)
